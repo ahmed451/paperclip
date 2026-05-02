@@ -1,6 +1,6 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams, useNavigate, Navigate } from "@/lib/router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useParams, useNavigate } from "@/lib/router";
+import { useQuery } from "@tanstack/react-query";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
 import { approvalsApi } from "../api/approvals";
@@ -9,51 +9,36 @@ import { activityApi } from "../api/activity";
 import { companySkillsApi } from "../api/companySkills";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
-import { useSidebar } from "../context/SidebarContext";
-import { useToastActions } from "../context/ToastContext";
 import { queryKeys } from "../lib/queryKeys";
-import { cn, formatDate, relativeTime, agentUrl } from "../lib/utils";
+import { isUuidLike } from "@paperclipai/shared";
+import { cn, agentUrl } from "../lib/utils";
 import { StatusBadge } from "../components/StatusBadge";
 import { StatusIcon } from "../components/StatusIcon";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { EmptyState } from "../components/EmptyState";
 import { AgentIcon } from "../components/AgentIconPicker";
-import { approvalLabel, defaultTypeIcon, typeIcon } from "../components/ApprovalPayload";
 import { timeAgo } from "../lib/timeAgo";
 import { Button } from "@/components/ui/button";
-import { Tabs } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Inbox,
-  Bell,
   CheckCircle2,
   Clock,
   AlertTriangle,
   Play,
-  Pause,
   Settings,
   Activity,
   Target,
-  FileText,
-  MessageSquare,
   ChevronRight,
-  Filter,
-  MoreHorizontal,
   Zap,
-  BarChart3,
-  Layers,
-  RefreshCw,
-  ExternalLink,
   User,
   Briefcase,
-  Mail,
   Shield,
 } from "lucide-react";
-import type { Agent, Issue, Approval, HeartbeatRun, ActivityEntry } from "@paperclipai/shared";
+import type { AgentDetail, Issue, Approval, HeartbeatRun, ActivityEvent, CompanySkillListItem } from "@paperclipai/shared";
 
 type WorkspaceTab = "inbox" | "tasks" | "approvals" | "activity" | "skills" | "settings";
 
@@ -71,92 +56,76 @@ interface InboxItem {
 }
 
 export function AgentWorkspace() {
-  const { agentId } = useParams<{ agentId: string }>();
+  const { companyPrefix, agentId } = useParams<{ companyPrefix?: string; agentId: string }>();
   const navigate = useNavigate();
-  const { selectedCompanyId } = useCompany();
+  const { companies, selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const { setSidebarCollapsed } = useSidebar();
-  const { showToast } = useToastActions();
-  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("inbox");
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Resolve company ID from URL prefix or use selected company
+  const routeCompanyId = useMemo(() => {
+    if (!companyPrefix) return null;
+    const requestedPrefix = companyPrefix.toUpperCase();
+    return companies.find((company) => company.issuePrefix.toUpperCase() === requestedPrefix)?.id ?? null;
+  }, [companies, companyPrefix]);
+  const lookupCompanyId = routeCompanyId ?? selectedCompanyId ?? undefined;
+  const routeAgentRef = agentId ?? "";
+  const canFetchAgent = routeAgentRef.length > 0 && (isUuidLike(routeAgentRef) || Boolean(lookupCompanyId));
 
   // Fetch agent details
   const { data: agent, isLoading: agentLoading, error: agentError } = useQuery({
-    queryKey: queryKeys.agents.detail(agentId!),
-    queryFn: () => agentsApi.get(agentId!),
-    enabled: !!agentId,
+    queryKey: [...queryKeys.agents.detail(routeAgentRef), lookupCompanyId ?? null],
+    queryFn: () => agentsApi.get(routeAgentRef, lookupCompanyId),
+    enabled: canFetchAgent,
   });
+
+  const resolvedCompanyId = agent?.companyId ?? selectedCompanyId;
 
   // Fetch issues assigned to this agent
-  const { data: assignedIssues = [], isLoading: issuesLoading } = useQuery({
-    queryKey: [...queryKeys.issues.list(selectedCompanyId!), "assigned", agentId],
-    queryFn: async () => {
-      const all = await issuesApi.list(selectedCompanyId!);
-      return all.filter(issue => issue.assigneeAgentId === agentId);
-    },
-    enabled: !!selectedCompanyId && !!agentId,
+  const { data: allIssues = [], isLoading: issuesLoading } = useQuery({
+    queryKey: queryKeys.issues.list(resolvedCompanyId!),
+    queryFn: () => issuesApi.list(resolvedCompanyId!),
+    enabled: !!resolvedCompanyId,
   });
 
-  // Fetch issues where agent is mentioned or involved
-  const { data: relatedIssues = [], isLoading: relatedLoading } = useQuery({
-    queryKey: [...queryKeys.issues.list(selectedCompanyId!), "related", agentId],
-    queryFn: async () => {
-      const all = await issuesApi.list(selectedCompanyId!);
-      return all.filter(issue => 
-        issue.createdByAgentId === agentId || 
-        (issue.participantAgentIds && issue.participantAgentIds.includes(agentId!))
-      );
-    },
-    enabled: !!selectedCompanyId && !!agentId,
+  const assignedIssues = useMemo(() => {
+    return allIssues.filter(issue => issue.assigneeAgentId === agent?.id);
+  }, [allIssues, agent?.id]);
+
+  // Fetch pending approvals
+  const { data: allApprovals = [], isLoading: approvalsLoading } = useQuery({
+    queryKey: queryKeys.approvals.list(resolvedCompanyId!),
+    queryFn: () => approvalsApi.list(resolvedCompanyId!),
+    enabled: !!resolvedCompanyId,
   });
 
-  // Fetch pending approvals for this agent
-  const { data: pendingApprovals = [], isLoading: approvalsLoading } = useQuery({
-    queryKey: [...queryKeys.approvals.list(selectedCompanyId!), "pending", agentId],
-    queryFn: async () => {
-      const all = await approvalsApi.list(selectedCompanyId!);
-      return all.filter(approval => 
-        approval.status === "pending" && 
-        (approval.requestedByAgentId === agentId || approval.targetAgentId === agentId)
-      );
-    },
-    enabled: !!selectedCompanyId && !!agentId,
-  });
+  const pendingApprovals = useMemo(() => {
+    return allApprovals.filter(approval => 
+      approval.status === "pending" && approval.requestedByAgentId === agent?.id
+    );
+  }, [allApprovals, agent?.id]);
 
   // Fetch recent runs
   const { data: recentRuns = [], isLoading: runsLoading } = useQuery({
-    queryKey: queryKeys.heartbeats.list(agentId!),
-    queryFn: () => heartbeatsApi.list(agentId!, { limit: 20 }),
-    enabled: !!agentId,
+    queryKey: [...queryKeys.heartbeats(resolvedCompanyId!, agent?.id), "workspace"],
+    queryFn: () => heartbeatsApi.list(resolvedCompanyId!, agent?.id, 20),
+    enabled: !!resolvedCompanyId && !!agent?.id,
   });
 
-  // Fetch activity
-  const { data: activityData, isLoading: activityLoading } = useQuery({
-    queryKey: queryKeys.activity.list(selectedCompanyId!),
-    queryFn: () => activityApi.list(selectedCompanyId!, { limit: 50 }),
-    enabled: !!selectedCompanyId,
+  // Fetch activity - returns ActivityEvent[] directly
+  const { data: activityEvents = [], isLoading: activityLoading } = useQuery({
+    queryKey: [...queryKeys.activity(resolvedCompanyId!), "workspace", agent?.id],
+    queryFn: () => activityApi.list(resolvedCompanyId!, { agentId: agent?.id, limit: 50 }),
+    enabled: !!resolvedCompanyId && !!agent?.id,
   });
-
-  const agentActivity = useMemo(() => {
-    if (!activityData?.entries) return [];
-    return activityData.entries.filter(entry => 
-      entry.actorAgentId === agentId || entry.targetAgentId === agentId
-    );
-  }, [activityData, agentId]);
 
   // Fetch skills
   const { data: skills = [], isLoading: skillsLoading } = useQuery({
-    queryKey: queryKeys.companySkills.list(selectedCompanyId!),
-    queryFn: () => companySkillsApi.list(selectedCompanyId!),
-    enabled: !!selectedCompanyId,
+    queryKey: queryKeys.companySkills.list(resolvedCompanyId!),
+    queryFn: () => companySkillsApi.list(resolvedCompanyId!),
+    enabled: !!resolvedCompanyId,
   });
-
-  const agentSkills = useMemo(() => {
-    if (!agent?.skills) return [];
-    return skills.filter(skill => agent.skills?.includes(skill.key));
-  }, [skills, agent?.skills]);
 
   // Build inbox items
   const inboxItems = useMemo((): InboxItem[] => {
@@ -169,9 +138,9 @@ export function AgentWorkspace() {
           id: `issue-${issue.id}`,
           type: "issue_assigned",
           title: issue.title || "Untitled Issue",
-          description: `Assigned ${relativeTime(new Date(issue.createdAt))}`,
+          description: `Assigned ${timeAgo(new Date(issue.createdAt))}`,
           timestamp: new Date(issue.updatedAt || issue.createdAt),
-          priority: issue.priority === "urgent" ? "high" : issue.priority === "high" ? "high" : "medium",
+          priority: issue.priority === "critical" ? "high" : issue.priority === "high" ? "high" : "medium",
           read: false,
           issueId: issue.id,
         });
@@ -183,8 +152,8 @@ export function AgentWorkspace() {
       items.push({
         id: `approval-${approval.id}`,
         type: "approval_pending",
-        title: approvalLabel(approval) || "Approval Required",
-        description: `Requested ${relativeTime(new Date(approval.createdAt))}`,
+        title: approval.type || "Approval Required",
+        description: `Requested ${timeAgo(new Date(approval.createdAt))}`,
         timestamp: new Date(approval.createdAt),
         priority: "high",
         read: false,
@@ -194,17 +163,16 @@ export function AgentWorkspace() {
 
     // Add recent run completions/failures
     recentRuns.slice(0, 5).forEach(run => {
-      if (run.status === "completed" || run.status === "failed") {
+      if (run.status === "succeeded" || run.status === "failed") {
         items.push({
           id: `run-${run.id}`,
-          type: run.status === "completed" ? "run_completed" : "run_failed",
-          title: run.status === "completed" ? "Task Completed" : "Task Failed",
-          description: run.issueTitle || `Run ${run.id.slice(0, 8)}`,
-          timestamp: new Date(run.endedAt || run.startedAt),
+          type: run.status === "succeeded" ? "run_completed" : "run_failed",
+          title: run.status === "succeeded" ? "Task Completed" : "Task Failed",
+          description: `Run ${run.id.slice(0, 8)}`,
+          timestamp: new Date(run.finishedAt || run.startedAt || run.createdAt),
           priority: run.status === "failed" ? "high" : "low",
           read: true,
           runId: run.id,
-          issueId: run.issueId,
         });
       }
     });
@@ -215,7 +183,7 @@ export function AgentWorkspace() {
 
   const unreadCount = inboxItems.filter(item => !item.read).length;
   const activeTasksCount = assignedIssues.filter(i => i.status === "in_progress").length;
-  const pendingTasksCount = assignedIssues.filter(i => i.status === "open" || i.status === "todo").length;
+  const pendingTasksCount = assignedIssues.filter(i => i.status === "todo" || i.status === "backlog").length;
 
   // Set breadcrumbs
   useEffect(() => {
@@ -228,29 +196,22 @@ export function AgentWorkspace() {
     }
   }, [agent, setBreadcrumbs]);
 
-  // Collapse sidebar for workspace view
-  useEffect(() => {
-    setSidebarCollapsed(true);
-    return () => setSidebarCollapsed(false);
-  }, [setSidebarCollapsed]);
-
   if (agentLoading) {
     return <PageSkeleton />;
   }
 
   if (agentError || !agent) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full p-8">
         <EmptyState
-          icon={<AlertTriangle className="h-8 w-8" />}
-          title="Agent Not Found"
-          description="The agent you're looking for doesn't exist or you don't have access."
+          icon={AlertTriangle}
+          message="The agent you're looking for doesn't exist or you don't have access."
         />
       </div>
     );
   }
 
-  const isActive = agent.status === "active" || agent.status === "running";
+  const isActive = agent.status === "active" || agent.status === "running" || agent.status === "idle";
   const isPaused = agent.status === "paused";
 
   return (
@@ -261,7 +222,9 @@ export function AgentWorkspace() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <AgentIcon agent={agent} size="lg" />
+                <div className="h-12 w-12 rounded-lg bg-accent flex items-center justify-center">
+                  <AgentIcon icon={agent.icon} className="h-6 w-6" />
+                </div>
                 <div 
                   className={cn(
                     "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background",
@@ -276,7 +239,6 @@ export function AgentWorkspace() {
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   {agent.title || agent.role}
-                  {agent.reportsToName && ` · Reports to ${agent.reportsToName}`}
                 </p>
               </div>
             </div>
@@ -311,99 +273,82 @@ export function AgentWorkspace() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6">
-          <Tabs
-            tabs={[
-              { 
-                id: "inbox", 
-                label: "Inbox", 
-                icon: <Inbox className="h-4 w-4" />,
-                badge: unreadCount > 0 ? unreadCount : undefined,
-              },
-              { 
-                id: "tasks", 
-                label: "My Tasks", 
-                icon: <Target className="h-4 w-4" />,
-                badge: assignedIssues.length > 0 ? assignedIssues.length : undefined,
-              },
-              { 
-                id: "approvals", 
-                label: "Approvals", 
-                icon: <Shield className="h-4 w-4" />,
-                badge: pendingApprovals.length > 0 ? pendingApprovals.length : undefined,
-              },
-              { 
-                id: "activity", 
-                label: "Activity", 
-                icon: <Activity className="h-4 w-4" />,
-              },
-              { 
-                id: "skills", 
-                label: "Skills", 
-                icon: <Zap className="h-4 w-4" />,
-              },
-              { 
-                id: "settings", 
-                label: "Settings", 
-                icon: <Settings className="h-4 w-4" />,
-              },
-            ]}
-            activeTab={activeTab}
-            onTabChange={(id) => setActiveTab(id as WorkspaceTab)}
-          />
+        <div className="px-6 flex gap-1 border-t border-border pt-2">
+          {[
+            { id: "inbox", label: "Inbox", icon: Inbox, badge: unreadCount },
+            { id: "tasks", label: "My Tasks", icon: Target, badge: assignedIssues.length },
+            { id: "approvals", label: "Approvals", icon: Shield, badge: pendingApprovals.length },
+            { id: "activity", label: "Activity", icon: Activity },
+            { id: "skills", label: "Skills", icon: Zap },
+            { id: "settings", label: "Settings", icon: Settings },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as WorkspaceTab)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-t-md transition-colors",
+                activeTab === tab.id
+                  ? "bg-background text-foreground border-b-2 border-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}
+            >
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
+              {tab.badge !== undefined && tab.badge > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                  {tab.badge}
+                </Badge>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Tab Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-6">
-          {activeTab === "inbox" && (
-            <InboxTabContent 
-              items={inboxItems}
-              isLoading={issuesLoading || approvalsLoading || runsLoading}
-              onItemClick={(item) => {
-                if (item.issueId) navigate(`/issues/${item.issueId}`);
-                else if (item.approvalId) navigate(`/approvals/${item.approvalId}`);
-              }}
-            />
-          )}
+      <div className="flex-1 overflow-auto p-6">
+        {activeTab === "inbox" && (
+          <InboxTabContent 
+            items={inboxItems}
+            isLoading={issuesLoading || approvalsLoading || runsLoading}
+            onItemClick={(item) => {
+              if (item.issueId) navigate(`/issues/${item.issueId}`);
+              else if (item.approvalId) navigate(`/approvals/${item.approvalId}`);
+            }}
+          />
+        )}
 
-          {activeTab === "tasks" && (
-            <TasksTabContent
-              issues={assignedIssues}
-              isLoading={issuesLoading}
-              agentId={agentId!}
-            />
-          )}
+        {activeTab === "tasks" && (
+          <TasksTabContent
+            issues={assignedIssues}
+            isLoading={issuesLoading}
+          />
+        )}
 
-          {activeTab === "approvals" && (
-            <ApprovalsTabContent
-              approvals={pendingApprovals}
-              isLoading={approvalsLoading}
-            />
-          )}
+        {activeTab === "approvals" && (
+          <ApprovalsTabContent
+            approvals={pendingApprovals}
+            isLoading={approvalsLoading}
+          />
+        )}
 
-          {activeTab === "activity" && (
-            <ActivityTabContent
-              activity={agentActivity}
-              isLoading={activityLoading}
-            />
-          )}
+        {activeTab === "activity" && (
+          <ActivityTabContent
+            activity={activityEvents}
+            isLoading={activityLoading}
+          />
+        )}
 
-          {activeTab === "skills" && (
-            <SkillsTabContent
-              skills={agentSkills}
-              allSkills={skills}
-              isLoading={skillsLoading}
-              agentId={agentId!}
-            />
-          )}
+        {activeTab === "skills" && (
+          <SkillsTabContent
+            skills={skills}
+            isLoading={skillsLoading}
+          />
+        )}
 
-          {activeTab === "settings" && (
-            <SettingsTabContent agent={agent} />
-          )}
-        </div>
-      </ScrollArea>
+        {activeTab === "settings" && (
+          <SettingsTabContent agent={agent} />
+        )}
+      </div>
     </div>
   );
 }
@@ -432,9 +377,8 @@ function InboxTabContent({
   if (items.length === 0) {
     return (
       <EmptyState
-        icon={<Inbox className="h-8 w-8" />}
-        title="Inbox Zero!"
-        description="You're all caught up. No new notifications."
+        icon={Inbox}
+        message="You're all caught up. No new notifications."
       />
     );
   }
@@ -461,7 +405,6 @@ function InboxTabContent({
           >
             <div className="flex-shrink-0">
               {item.type === "issue_assigned" && <Target className="h-5 w-5 text-blue-500" />}
-              {item.type === "issue_mentioned" && <MessageSquare className="h-5 w-5 text-purple-500" />}
               {item.type === "approval_pending" && <Shield className="h-5 w-5 text-orange-500" />}
               {item.type === "run_completed" && <CheckCircle2 className="h-5 w-5 text-green-500" />}
               {item.type === "run_failed" && <AlertTriangle className="h-5 w-5 text-red-500" />}
@@ -477,7 +420,7 @@ function InboxTabContent({
                 <Badge variant="destructive" className="text-xs">High</Badge>
               )}
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {relativeTime(item.timestamp)}
+                {timeAgo(item.timestamp)}
               </span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </div>
@@ -490,11 +433,9 @@ function InboxTabContent({
 function TasksTabContent({ 
   issues, 
   isLoading,
-  agentId 
 }: { 
   issues: Issue[]; 
   isLoading: boolean;
-  agentId: string;
 }) {
   const navigate = useNavigate();
   
@@ -509,9 +450,18 @@ function TasksTabContent({
   }
 
   const inProgress = issues.filter(i => i.status === "in_progress");
-  const pending = issues.filter(i => i.status === "open" || i.status === "todo");
+  const pending = issues.filter(i => i.status === "todo" || i.status === "backlog");
   const blocked = issues.filter(i => i.status === "blocked");
   const completed = issues.filter(i => i.status === "done").slice(0, 5);
+
+  if (issues.length === 0) {
+    return (
+      <EmptyState
+        icon={Target}
+        message="This agent doesn't have any tasks assigned yet."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -570,14 +520,6 @@ function TasksTabContent({
           </div>
         </div>
       )}
-
-      {issues.length === 0 && (
-        <EmptyState
-          icon={<Target className="h-8 w-8" />}
-          title="No Tasks Assigned"
-          description="This agent doesn't have any tasks assigned yet."
-        />
-      )}
     </div>
   );
 }
@@ -592,8 +534,7 @@ function IssueCard({ issue, onClick }: { issue: Issue; onClick: () => void }) {
       <div className="flex-1 min-w-0">
         <div className="font-medium truncate">{issue.title || "Untitled"}</div>
         <div className="text-sm text-muted-foreground">
-          {issue.projectName && `${issue.projectName} · `}
-          Updated {relativeTime(new Date(issue.updatedAt || issue.createdAt))}
+          Updated {timeAgo(new Date(issue.updatedAt || issue.createdAt))}
         </div>
       </div>
       <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -623,9 +564,8 @@ function ApprovalsTabContent({
   if (approvals.length === 0) {
     return (
       <EmptyState
-        icon={<Shield className="h-8 w-8" />}
-        title="No Pending Approvals"
-        description="There are no approvals waiting for action."
+        icon={Shield}
+        message="There are no approvals waiting for action."
       />
     );
   }
@@ -641,9 +581,9 @@ function ApprovalsTabContent({
           <div className="flex items-start gap-3">
             <Shield className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <div className="font-medium">{approvalLabel(approval)}</div>
+              <div className="font-medium">{approval.type}</div>
               <div className="text-sm text-muted-foreground mt-1">
-                Requested {relativeTime(new Date(approval.createdAt))}
+                Requested {timeAgo(new Date(approval.createdAt))}
               </div>
             </div>
             <Button size="sm" variant="outline">
@@ -660,7 +600,7 @@ function ActivityTabContent({
   activity, 
   isLoading 
 }: { 
-  activity: ActivityEntry[]; 
+  activity: ActivityEvent[]; 
   isLoading: boolean;
 }) {
   if (isLoading) {
@@ -676,9 +616,8 @@ function ActivityTabContent({
   if (activity.length === 0) {
     return (
       <EmptyState
-        icon={<Activity className="h-8 w-8" />}
-        title="No Activity Yet"
-        description="Activity will appear here as the agent works on tasks."
+        icon={Activity}
+        message="Activity will appear here as the agent works on tasks."
       />
     );
   }
@@ -691,7 +630,7 @@ function ActivityTabContent({
           <div className="flex-1">
             <div className="text-sm">{entry.action}</div>
             <div className="text-xs text-muted-foreground">
-              {relativeTime(new Date(entry.createdAt))}
+              {timeAgo(new Date(entry.createdAt))}
             </div>
           </div>
         </div>
@@ -702,14 +641,10 @@ function ActivityTabContent({
 
 function SkillsTabContent({ 
   skills, 
-  allSkills,
   isLoading,
-  agentId 
 }: { 
-  skills: any[]; 
-  allSkills: any[];
+  skills: CompanySkillListItem[]; 
   isLoading: boolean;
-  agentId: string;
 }) {
   if (isLoading) {
     return (
@@ -724,9 +659,8 @@ function SkillsTabContent({
   if (skills.length === 0) {
     return (
       <EmptyState
-        icon={<Zap className="h-8 w-8" />}
-        title="No Skills Assigned"
-        description="Skills define what capabilities this agent has. Configure skills in agent settings."
+        icon={Zap}
+        message="Skills define what capabilities this agent has. Configure skills in agent settings."
       />
     );
   }
@@ -752,7 +686,7 @@ function SkillsTabContent({
   );
 }
 
-function SettingsTabContent({ agent }: { agent: Agent }) {
+function SettingsTabContent({ agent }: { agent: AgentDetail }) {
   return (
     <div className="max-w-2xl space-y-6">
       <Card>
@@ -801,6 +735,9 @@ function SettingsTabContent({ agent }: { agent: Agent }) {
                 </Badge>
               </div>
             ))}
+            {!agent.permissions && (
+              <p className="text-muted-foreground col-span-2">No permissions configured.</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -818,12 +755,6 @@ function SettingsTabContent({ agent }: { agent: Agent }) {
               <span className="text-muted-foreground">Adapter Type</span>
               <span className="font-medium">{agent.adapterType}</span>
             </div>
-            {agent.model && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Model</span>
-                <span className="font-medium">{agent.model}</span>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
