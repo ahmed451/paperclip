@@ -424,9 +424,31 @@ export function agentService(db: Db) {
       const role = data.role ?? "general";
       const normalizedPermissions = normalizeAgentPermissions(data.permissions, role);
       const runtimeConfig = normalizeRuntimeConfigForNewAgent(data.runtimeConfig);
+      
+      // Initialize workspace configuration for new agents
+      const workspaceConfig = {
+        enabled: true,
+        createdAt: new Date().toISOString(),
+        preferences: {
+          defaultTab: "inbox",
+          notificationsEnabled: true,
+          emailDigest: false,
+        },
+        layout: {
+          sidebarCollapsed: false,
+          theme: "system",
+        },
+      };
+      
+      // Merge workspace config into metadata
+      const metadata = {
+        ...(isPlainRecord(data.metadata) ? data.metadata : {}),
+        workspace: workspaceConfig,
+      };
+      
       const created = await db
         .insert(agents)
-        .values({ ...data, name: uniqueName, companyId, role, permissions: normalizedPermissions, runtimeConfig })
+        .values({ ...data, name: uniqueName, companyId, role, permissions: normalizedPermissions, runtimeConfig, metadata })
         .returning()
         .then((rows) => rows[0]);
 

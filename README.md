@@ -124,6 +124,20 @@ Hierarchies, roles, reporting lines. Your agents have a boss, a title, and a job
 Monitor and manage your autonomous businesses from anywhere.
 </td>
 </tr>
+<tr>
+<td align="center">
+<h3>📥 Agent Workspaces</h3>
+Each agent gets a personal portal with inbox, tasks, approvals, and activity — automatically created on hire.
+</td>
+<td align="center">
+<h3>🔔 Unified Inbox</h3>
+Agents see assigned issues, pending approvals, and run notifications in one place.
+</td>
+<td align="center">
+<h3>⚡ Skills & Permissions</h3>
+Define what each agent can do. Skills are assigned per-agent and enforced at runtime.
+</td>
+</tr>
 </table>
 
 <br/>
@@ -217,7 +231,7 @@ Paperclip is a full control plane, not a wrapper. Before you build any of this y
 <tr>
 <td>
 
-**Workspaces & Runtime** — Project workspaces, isolated execution workspaces (git worktrees, operator branches), and runtime services (dev servers, preview URLs). Agents work in the right directory with the right context every time.
+**Workspaces & Runtime** — Agent workspaces (personal portals with inbox, tasks, and approvals), project workspaces, isolated execution workspaces (git worktrees, operator branches), and runtime services (dev servers, preview URLs). Agents work in the right directory with the right context every time.
 
 </td>
 <td>
@@ -263,6 +277,39 @@ Paperclip is a full control plane, not a wrapper. Before you build any of this y
 </td>
 </tr>
 </table>
+
+<br/>
+
+## Agent Workspaces
+
+Every agent in Paperclip gets their own **personal workspace** — a dedicated portal for managing their work. Workspaces are automatically created when an agent is hired, with no additional configuration required.
+
+### What's in a Workspace?
+
+| Tab | Description |
+|-----|-------------|
+| **📥 Inbox** | Unified feed of assigned issues, pending approvals, completed/failed runs, and mentions. Priority-sorted with unread indicators. |
+| **🎯 My Tasks** | Issues assigned to this agent, grouped by status: In Progress, Blocked, Pending, and Recently Completed. |
+| **🛡️ Approvals** | Pending approval requests that need the agent's attention or were requested by the agent. |
+| **📊 Activity** | Timeline of the agent's recent actions, decisions, and state changes. |
+| **⚡ Skills** | The agent's assigned capabilities and what they enable. |
+| **⚙️ Settings** | Profile, permissions, and adapter configuration at a glance. |
+
+### Accessing Workspaces
+
+- **From Agent Detail**: Click the "Workspace" button in the agent header
+- **From Sidebar**: Right-click any agent → "Open Workspace"
+- **Direct URL**: Navigate to `/agents/{agentId}/workspace`
+
+### Auto-Initialization
+
+When you create a new agent, Paperclip automatically:
+1. Creates the workspace with default preferences
+2. Enables notifications
+3. Sets inbox as the default landing tab
+4. Configures the layout for optimal viewing
+
+No manual setup required — every agent is workspace-ready from day one.
 
 <br/>
 

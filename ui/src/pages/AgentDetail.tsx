@@ -74,6 +74,7 @@ import {
   ArrowLeft,
   HelpCircle,
   FolderOpen,
+  Inbox,
 } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -936,6 +937,16 @@ export function AgentDetail() {
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+          >
+            <Link to={`/agents/${agentRouteRef(agent)}/workspace`}>
+              <Inbox className="h-3.5 w-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">Workspace</span>
+            </Link>
+          </Button>
           <Button
             variant="outline"
             size="sm"

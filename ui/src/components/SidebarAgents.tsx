@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronRight,
+  Inbox,
   MoreHorizontal,
   PauseCircle,
   Pencil,
@@ -124,6 +125,17 @@ function SidebarAgentItem({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem asChild>
+            <Link
+              to={`${agentUrl(agent)}/workspace`}
+              onClick={() => {
+                if (isMobile) setSidebarOpen(false);
+              }}
+            >
+              <Inbox className="size-4" />
+              <span>Open Workspace</span>
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link
               to={editHref}
