@@ -80,8 +80,23 @@ export function EmployeeLayout({ children }: EmployeeLayoutProps) {
           sidebarCollapsed ? "w-16" : "w-64"
         )}
       >
-        {/* Branding */}
-        <div className="h-16 flex items-center justify-center border-b border-white/10 px-4">
+        {/* Branding Area - Top */}
+        <div className="h-14 border-b border-white/10 flex items-center px-4 bg-[#0f172a]">
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
+                <span className="text-white font-bold text-sm">N</span>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400">Company</div>
+                <div className="text-sm font-semibold text-white">NextAI</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Employee Portal Branding */}
+        <div className="h-16 flex items-center justify-center border-b border-white/10 px-4 bg-[#1e293b]">
           {!sidebarCollapsed && (
             <span className="text-lg font-bold text-white">{t("portalTitle")}</span>
           )}
