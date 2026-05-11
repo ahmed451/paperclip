@@ -46,6 +46,11 @@ import { PluginPage } from "./pages/PluginPage";
 import { OrgChart } from "./pages/OrgChart";
 import { NewAgent } from "./pages/NewAgent";
 import { AgentWorkspace } from "./pages/AgentWorkspace";
+import { Employees } from "./pages/Employees";
+import { EmployeePortfolioDashboard } from "./pages/EmployeeDashboard";
+import { EmployeeAgentStudio } from "./pages/EmployeeStudio";
+import { EmployeeRealtimeKanban } from "./pages/EmployeeKanban";
+import { EmployeeMailbox } from "./pages/EmployeeMailbox";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { CliAuthPage } from "./pages/CliAuth";
@@ -76,7 +81,12 @@ function boardRoutes() {
       <Route path="settings/*" element={<LegacySettingsRedirect />} />
       <Route path="plugins/:pluginId" element={<PluginPage />} />
       <Route path="org" element={<OrgChart />} />
-      <Route path="agents" element={<Navigate to="/agents/all" replace />} />
+      <Route path="employees" element={<Employees />} />
+      <Route path="employee/:agentId" element={<Navigate to={`/employee/${":agentId"}/dashboard`} replace />} />
+      <Route path="employee/:agentId/dashboard" element={<EmployeePortfolioDashboard />} />
+      <Route path="employee/:agentId/studio" element={<EmployeeAgentStudio />} />
+      <Route path="employee/:agentId/kanban" element={<EmployeeRealtimeKanban />} />
+      <Route path="employee/:agentId/mailbox" element={<EmployeeMailbox />} />
       <Route path="agents/all" element={<Agents />} />
       <Route path="agents/active" element={<Agents />} />
       <Route path="agents/paused" element={<Agents />} />
@@ -266,6 +276,13 @@ export function App() {
         <Route path="cli-auth/:id" element={<CliAuthPage />} />
         <Route path="invite/:token" element={<InviteLandingPage />} />
         <Route path="tests/perf/long-thread" element={<IssueChatLongThreadPerf />} />
+        
+        {/* Independent Employee Portal Routes (no main Layout) */}
+        <Route path="employee-portal/:agentId" element={<Navigate to={`/employee-portal/${":agentId"}/dashboard`} replace />} />
+        <Route path="employee-portal/:agentId/dashboard" element={<EmployeePortfolioDashboard />} />
+        <Route path="employee-portal/:agentId/studio" element={<EmployeeAgentStudio />} />
+        <Route path="employee-portal/:agentId/kanban" element={<EmployeeRealtimeKanban />} />
+        <Route path="employee-portal/:agentId/mailbox" element={<EmployeeMailbox />} />
 
         <Route element={<CloudAccessGate />}>
           <Route index element={<CompanyRootRedirect />} />
