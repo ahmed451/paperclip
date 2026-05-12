@@ -101,7 +101,7 @@ export function Sidebar() {
         </div>
 
         <SidebarSection label="Work">
-          <SidebarNavItem to={`/${companyPrefix || selectedCompany?.issuePrefix || 'NEX'}/employees`} label="Employees" icon={Users} />
+          <SidebarNavItem to={`/${companyPrefix || selectedCompany?.issuePrefix || 'NEX'}/employees`} label="Employees" icon={Users} target="_blank" />
           <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
           <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
           <SidebarNavItem to="/goals" label="Goals" icon={Target} />

@@ -11,7 +11,7 @@ drizzle/meta/
 coverage/
 .DS_Store
 data/
-.paperclip/
+.paperclip/dev-server-status.json
 .pnpm-store/
 tmp-*
 cli/tmp/

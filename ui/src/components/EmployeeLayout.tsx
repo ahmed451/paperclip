@@ -3,6 +3,7 @@ import { Link, useParams, useLocation, useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
+import { CompanyPatternIcon } from "./CompanyPatternIcon";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { cn as cnUtils } from "@/lib/utils";
@@ -31,7 +32,7 @@ export function EmployeeLayout({ children }: EmployeeLayoutProps) {
   const { agentId } = useParams<{ agentId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectedCompanyId } = useCompany();
+  const { selectedCompanyId, selectedCompany } = useCompany();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t, language, toggleLanguage, isRTL } = useTranslations();
@@ -82,14 +83,28 @@ export function EmployeeLayout({ children }: EmployeeLayoutProps) {
       >
         {/* Branding Area - Top */}
         <div className="h-14 border-b border-white/10 flex items-center px-4 bg-[#0f172a]">
-          {!sidebarCollapsed && (
+          {!sidebarCollapsed && selectedCompany && (
+            <div className="flex items-center gap-2">
+              <CompanyPatternIcon
+                companyName={selectedCompany.name}
+                logoUrl={selectedCompany.logoUrl}
+                brandColor={selectedCompany.brandColor}
+                className="w-8 h-8 rounded-lg text-sm"
+              />
+              <div>
+                <div className="text-xs text-gray-400">Company</div>
+                <div className="text-sm font-semibold text-white">{selectedCompany.name}</div>
+              </div>
+            </div>
+          )}
+          {!sidebarCollapsed && !selectedCompany && (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">N</span>
+                <span className="text-white font-bold text-sm">?</span>
               </div>
               <div>
                 <div className="text-xs text-gray-400">Company</div>
-                <div className="text-sm font-semibold text-white">NextAI</div>
+                <div className="text-sm font-semibold text-white">Unknown</div>
               </div>
             </div>
           )}

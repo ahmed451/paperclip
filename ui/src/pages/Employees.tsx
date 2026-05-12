@@ -288,11 +288,11 @@ function AgentCard({ agent, stats }: {
 
           {/* Right section - Actions */}
           <div className="flex items-center gap-2 px-4 border-l border-white/10">
-            <Button variant="outline" size="sm" className="text-white border-white/20 hover:bg-white/10">
-              <Link to={`/employee-portal/${agent.id}/dashboard`}>
+            <Button variant="outline" size="sm" className="text-white border-white/20 hover:bg-white/10" asChild>
+              <a href={`/employee-portal/${agent.id}/dashboard`} target="_blank" rel="noopener noreferrer">
                 <Briefcase className="h-4 w-4 mr-1" />
                 Workspace
-              </Link>
+              </a>
             </Button>
           </div>
         </div>
