@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi } from "../api/agents";
@@ -8,15 +8,17 @@ import { heartbeatsApi } from "../api/heartbeats";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { EmployeeLayout } from "../components/EmployeeLayout";
+import { EmployeeCreateTaskDialog } from "../components/EmployeeCreateTaskDialog";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "../lib/timeAgo";
-import { Inbox, Shield, CheckCircle2, AlertTriangle, Target, ChevronRight } from "lucide-react";
+import { Inbox, Shield, CheckCircle2, AlertTriangle, Target, ChevronRight, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export function EmployeeMailbox() {
   const { agentId } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
   const { selectedCompanyId } = useCompany();
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { data: agent, isLoading } = useQuery({
     queryKey: [...queryKeys.agents.detail(agentId!), selectedCompanyId ?? null],
@@ -58,10 +60,24 @@ export function EmployeeMailbox() {
 
   return (
     <EmployeeLayout>
+      <EmployeeCreateTaskDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        defaultAssigneeId={agentId}
+      />
       <div className="p-6">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold text-white mb-2">Mailbox & Approvals</h2>
-          <p className="text-sm text-gray-400">Notifications, tasks, and approvals</p>
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-white mb-2">Mailbox & Approvals</h2>
+            <p className="text-sm text-gray-400">Notifications, tasks, and approvals</p>
+          </div>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            New Task
+          </button>
         </div>
         <div className="space-y-3">
           {inboxItems.length === 0 ? (

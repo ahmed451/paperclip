@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi } from "../api/agents";
@@ -7,6 +7,7 @@ import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { EmployeeLayout } from "../components/EmployeeLayout";
+import { EmployeeCreateTaskDialog } from "../components/EmployeeCreateTaskDialog";
 import { useTranslations } from "../lib/translations";
 import {
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   Activity,
   Users,
   Briefcase,
+  Plus,
 } from "lucide-react";
 import type { Agent, Issue } from "@paperclipai/shared";
 
@@ -25,6 +27,7 @@ export function EmployeePortfolioDashboard() {
   const { agentId } = useParams<{ agentId: string }>();
   const { selectedCompanyId } = useCompany();
   const { t } = useTranslations();
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Fetch agent
   const { data: agent, isLoading: agentLoading } = useQuery({
@@ -62,7 +65,23 @@ export function EmployeePortfolioDashboard() {
 
   return (
     <EmployeeLayout>
+      <EmployeeCreateTaskDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        defaultAssigneeId={agentId}
+      />
       <div className="p-6 space-y-6">
+        {/* Page header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Dashboard</h2>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Task
+          </button>
+        </div>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
