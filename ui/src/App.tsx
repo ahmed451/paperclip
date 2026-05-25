@@ -51,6 +51,8 @@ import { EmployeePortfolioDashboard } from "./pages/EmployeeDashboard";
 import { EmployeeAgentStudio } from "./pages/EmployeeStudio";
 import { EmployeeRealtimeKanban } from "./pages/EmployeeKanban";
 import { EmployeeMailbox } from "./pages/EmployeeMailbox";
+import { EmployeePortalLogin } from "./pages/EmployeePortalLogin";
+import { EmployeeAuthGate } from "./components/EmployeeAuthGate";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { CliAuthPage } from "./pages/CliAuth";
@@ -277,12 +279,15 @@ export function App() {
         <Route path="invite/:token" element={<InviteLandingPage />} />
         <Route path="tests/perf/long-thread" element={<IssueChatLongThreadPerf />} />
         
-        {/* Independent Employee Portal Routes (no main Layout) */}
-        <Route path="employee-portal/:agentId" element={<Navigate to={`/employee-portal/${":agentId"}/dashboard`} replace />} />
-        <Route path="employee-portal/:agentId/dashboard" element={<EmployeePortfolioDashboard />} />
-        <Route path="employee-portal/:agentId/studio" element={<EmployeeAgentStudio />} />
-        <Route path="employee-portal/:agentId/kanban" element={<EmployeeRealtimeKanban />} />
-        <Route path="employee-portal/:agentId/mailbox" element={<EmployeeMailbox />} />
+        {/* Employee Portal — login is public, all other routes require portal auth */}
+        <Route path="employee-portal/login" element={<EmployeePortalLogin />} />
+        <Route path="employee-portal/:agentId" element={<EmployeeAuthGate />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<EmployeePortfolioDashboard />} />
+          <Route path="studio" element={<EmployeeAgentStudio />} />
+          <Route path="kanban" element={<EmployeeRealtimeKanban />} />
+          <Route path="mailbox" element={<EmployeeMailbox />} />
+        </Route>
 
         <Route element={<CloudAccessGate />}>
           <Route index element={<CompanyRootRedirect />} />

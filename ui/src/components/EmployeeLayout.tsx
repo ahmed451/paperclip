@@ -16,11 +16,14 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
+  Users,
   Menu,
   X,
   Languages,
+  LogOut,
 } from "lucide-react";
 import type { Agent } from "@paperclipai/shared";
+import { getEmployeeSession, clearEmployeeSession, getAccessibleAgents, isAdminRole } from "../lib/employeeAuth";
 
 interface EmployeeLayoutProps {
   children: React.ReactNode;
@@ -35,7 +38,10 @@ export function EmployeeLayout({ children }: EmployeeLayoutProps) {
   const { selectedCompanyId, selectedCompany } = useCompany();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   const { t, language, toggleLanguage, isRTL } = useTranslations();
+
+  const session = getEmployeeSession();
 
   // Fetch agent
   const { data: agent, isLoading } = useQuery({
@@ -43,6 +49,24 @@ export function EmployeeLayout({ children }: EmployeeLayoutProps) {
     queryFn: () => agentsApi.get(agentId!, selectedCompanyId!),
     enabled: !!selectedCompanyId && !!agentId,
   });
+
+  // Fetch all agents to build the switcher for admins/managers
+  const { data: allAgents = [] } = useQuery({
+    queryKey: queryKeys.agents.list(selectedCompanyId ?? session?.companyId ?? ""),
+    queryFn: () => agentsApi.list(selectedCompanyId ?? session!.companyId),
+    enabled: !!(selectedCompanyId || session?.companyId) && !!session,
+  });
+
+  const accessibleAgents = useMemo(() => {
+    if (!session) return [];
+    const others = getAccessibleAgents(session, allAgents).filter((a) => a.id !== agentId);
+    return others;
+  }, [session, allAgents, agentId]);
+
+  const handleLogout = () => {
+    clearEmployeeSession();
+    navigate("/employee-portal/login");
+  };
 
   // Determine active tab from route
   const getActiveTab = (): EmployeeTab => {
@@ -197,6 +221,42 @@ export function EmployeeLayout({ children }: EmployeeLayoutProps) {
           </Link>
         </nav>
 
+        {/* Agent Switcher for admins/managers */}
+        {!sidebarCollapsed && accessibleAgents.length > 0 && (
+          <div className="px-2 pb-2 border-t border-white/10 pt-3">
+            <button
+              onClick={() => setSwitcherOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-gray-400 hover:bg-white/5 hover:text-white transition-colors text-xs font-medium uppercase tracking-wide"
+            >
+              <span className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Switch Employee
+              </span>
+              <span className="text-gray-600">{switcherOpen ? "▲" : "▼"}</span>
+            </button>
+            {switcherOpen && (
+              <div className="mt-1 space-y-0.5 max-h-48 overflow-y-auto">
+                {accessibleAgents.map((a) => (
+                  <Link
+                    key={a.id}
+                    to={`/employee-portal/${a.id}/dashboard`}
+                    onClick={() => setSwitcherOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:bg-purple-600/10 hover:text-white transition-colors text-sm"
+                  >
+                    <div className="w-6 h-6 rounded bg-purple-600/20 flex items-center justify-center shrink-0">
+                      <User className="w-3 h-3 text-purple-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-medium">{a.name}</div>
+                      <div className="truncate text-xs text-gray-600">{a.title || a.role}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Agent Info at Bottom */}
         {!sidebarCollapsed && agent && (
           <div className="p-4 border-t border-white/10">
@@ -249,7 +309,7 @@ export function EmployeeLayout({ children }: EmployeeLayoutProps) {
               <Languages className="w-4 h-4 text-white" />
               <span className="text-xs text-white font-medium">{language === "en" ? "العربية" : "English"}</span>
             </button>
-            
+
             {agent && (
               <span
                 className={cnUtils(
@@ -264,6 +324,15 @@ export function EmployeeLayout({ children }: EmployeeLayoutProps) {
                 {t(agent.status.toLowerCase() as TranslationKey) || agent.status}
               </span>
             )}
+
+            {/* Logout */}
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="w-4 h-4 text-gray-400 hover:text-red-400" />
+            </button>
           </div>
         </header>
 
