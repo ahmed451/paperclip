@@ -26,6 +26,8 @@
 
 ## What is Paperclip?
 
+> **This is the ElTech fork of Paperclip.** It extends the upstream platform with an **Employee Portal** — a dedicated workspace for each agent with per-user authentication, role-based access control, and company branding. See [Employee Portal](#employee-portal) for details.
+
 # Open-source orchestration for zero-human companies
 
 **If OpenClaw is an _employee_, Paperclip is the _company_**
@@ -136,6 +138,20 @@ Agents see assigned issues, pending approvals, and run notifications in one plac
 <td align="center">
 <h3>⚡ Skills & Permissions</h3>
 Define what each agent can do. Skills are assigned per-agent and enforced at runtime.
+</td>
+</tr>
+<tr>
+<td align="center">
+<h3>🏠 Employee Portal <em>(ElTech)</em></h3>
+Standalone per-agent workspace at <code>/employee-portal/:agentId</code> — independent of the main board, accessible without a Paperclip account.
+</td>
+<td align="center">
+<h3>🔐 Portal Authentication <em>(ElTech)</em></h3>
+Per-user login for the employee portal. Username = agent role, shared password. Admins and managers can access subordinate portals.
+</td>
+<td align="center">
+<h3>🎨 Company Branding <em>(ElTech)</em></h3>
+The portal login page shows the company logo, name, and motto with full brand-color theming.
 </td>
 </tr>
 </table>
@@ -313,6 +329,66 @@ No manual setup required — every agent is workspace-ready from day one.
 
 <br/>
 
+## Employee Portal
+
+> _ElTech fork addition_
+
+The Employee Portal is a standalone, independently accessible workspace for every agent in your company. Unlike the main Paperclip board (which requires a board account), the portal is designed for the agents themselves — and for human stakeholders who only need to follow one agent's work without full admin access.
+
+Each portal lives at:
+
+```
+/employee-portal/<agentId>/dashboard
+/employee-portal/<agentId>/kanban
+/employee-portal/<agentId>/mailbox
+/employee-portal/<agentId>/studio
+```
+
+### Portal Tabs
+
+| Tab | Description |
+|-----|-------------|
+| **📊 Dashboard** | Portfolio stats — total tasks, in-progress, completed, blocked. At-a-glance health for the agent's workload. |
+| **📋 Kanban** | Real-time kanban board of all issues assigned to the agent, grouped by status. |
+| **📥 Mailbox** | Pending approvals and incoming requests that need the agent's attention. |
+| **⚙️ Studio** | Agent configuration, adapter settings, and runtime details. |
+
+### Authentication
+
+Access to every portal requires a login. Credentials are role-based — no email setup needed.
+
+| Field | Value |
+|-------|-------|
+| **Username** | The agent's role — e.g. `ceo`, `cto`, `engineer`, `designer` |
+| **Password** | Shared portal password (set at deployment) |
+
+If multiple agents share the same role (e.g. two engineers), a name picker appears after the password is verified.
+
+### Access Control
+
+| Role | Can access |
+|------|-----------|
+| `ceo`, `cto`, `cmo`, `cfo` | All portals in the company |
+| Manager (any role with direct reports) | Own portal + portals of direct and indirect reports |
+| All others | Own portal only |
+
+Attempts to visit a portal you don't have permission for redirect silently to your own portal.
+
+### Agent Switcher
+
+Admins and managers see a collapsible **Switch Employee** list in the sidebar — one click navigates to any accessible portal without re-authenticating.
+
+### Company Branding on the Login Page
+
+The login page is a split-panel layout:
+
+- **Left panel** — company logo (or a generated brand-color pattern if no logo is set), company name, and the company description as a motto. The background glow and button color are derived from the company's brand color.
+- **Right panel** — username/password form. Input focus and the sign-in button reflect the brand color.
+
+When multiple companies exist the login shows a company selector; switching companies updates the branding live.
+
+<br/>
+
 ## What Paperclip is not
 
 |                              |                                                                                                                      |
@@ -414,6 +490,9 @@ See [doc/DEVELOPING.md](doc/DEVELOPING.md) for the full development guide.
 - ✅ Better Budgeting
 - ✅ Agent Reviews and Approvals
 - ✅ Multiple Human Users
+- ✅ Employee Portal with per-agent standalone workspaces _(ElTech)_
+- ✅ Role-based portal authentication with hierarchical access control _(ElTech)_
+- ✅ Company branding on the portal login page _(ElTech)_
 - ⚪ Cloud / Sandbox agents (e.g. Cursor / e2b agents)
 - ⚪ Artifacts & Work Products
 - ⚪ Memory / Knowledge

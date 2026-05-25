@@ -1,1 +1,57 @@
-{}
+{
+  "$meta": {
+    "version": 1,
+    "updatedAt": "2026-05-20T12:58:20.149Z",
+    "source": "onboard"
+  },
+  "database": {
+    "mode": "embedded-postgres",
+    "embeddedPostgresDataDir": "/Users/aa/dev/LLM/collaboration/ElTech/paperclip2/paperclip/.paperclip-local/instances/default/db",
+    "embeddedPostgresPort": 54329,
+    "backup": {
+      "enabled": true,
+      "intervalMinutes": 60,
+      "retentionDays": 30,
+      "dir": "/Users/aa/dev/LLM/collaboration/ElTech/paperclip2/paperclip/.paperclip-local/instances/default/data/backups"
+    }
+  },
+  "logging": {
+    "mode": "file",
+    "logDir": "/Users/aa/dev/LLM/collaboration/ElTech/paperclip2/paperclip/.paperclip-local/instances/default/logs"
+  },
+  "server": {
+    "deploymentMode": "local_trusted",
+    "exposure": "private",
+    "bind": "loopback",
+    "host": "127.0.0.1",
+    "port": 3100,
+    "allowedHostnames": [],
+    "serveUi": true
+  },
+  "auth": {
+    "baseUrlMode": "auto",
+    "disableSignUp": false
+  },
+  "telemetry": {
+    "enabled": true
+  },
+  "storage": {
+    "provider": "local_disk",
+    "localDisk": {
+      "baseDir": "/Users/aa/dev/LLM/collaboration/ElTech/paperclip2/paperclip/.paperclip-local/instances/default/data/storage"
+    },
+    "s3": {
+      "bucket": "paperclip",
+      "region": "us-east-1",
+      "prefix": "",
+      "forcePathStyle": false
+    }
+  },
+  "secrets": {
+    "provider": "local_encrypted",
+    "strictMode": false,
+    "localEncrypted": {
+      "keyFilePath": "/Users/aa/dev/LLM/collaboration/ElTech/paperclip2/paperclip/.paperclip-local/instances/default/secrets/master.key"
+    }
+  }
+}
