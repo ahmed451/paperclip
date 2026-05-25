@@ -87,29 +87,58 @@ export function EmployeeMailbox() {
               <p className="text-sm text-gray-400">No new notifications</p>
             </div>
           ) : (
-            inboxItems.map(item => (
-              <div key={item.id} onClick={() => { if ("issueId" in item && item.issueId) navigate(`/issues/${item.issueId}`); else if ("approvalId" in item && item.approvalId) navigate(`/approvals/${item.approvalId}`); }}
-                className={cn("p-4 rounded-lg border cursor-pointer transition-all", item.priority === "high" ? "bg-orange-500/5 border-orange-500/30" : "bg-[#1e293b] border-white/10 hover:bg-white/5")}>
-                <div className="flex items-start gap-4">
-                  <div className="p-2 rounded-lg bg-white/5">
-                    {item.type === "task" && <Target className="w-5 h-5 text-blue-400" />}
-                    {item.type === "approval" && <Shield className="w-5 h-5 text-orange-400" />}
-                    {item.type === "success" && <CheckCircle2 className="w-5 h-5 text-green-400" />}
-                    {item.type === "error" && <AlertTriangle className="w-5 h-5 text-red-400" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-white truncate">{item.title}</h3>
-                      {item.priority === "high" && <Badge variant="destructive" className="text-xs">High Priority</Badge>}
-                      {item.type === "approval" && <Badge className="text-xs bg-orange-500">Approval</Badge>}
+            inboxItems.map(item => {
+              // Approval items are for the board to action — employees see status only, no navigation.
+              const isApproval = item.type === "approval";
+              const handleClick = isApproval
+                ? undefined
+                : () => { if ("issueId" in item && item.issueId) navigate(`/issues/${item.issueId}`); };
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={handleClick}
+                  className={cn(
+                    "p-4 rounded-lg border transition-all",
+                    isApproval
+                      ? "bg-amber-500/5 border-amber-500/20 cursor-default"
+                      : item.priority === "high"
+                      ? "bg-orange-500/5 border-orange-500/30 cursor-pointer hover:bg-orange-500/10"
+                      : "bg-[#1e293b] border-white/10 cursor-pointer hover:bg-white/5",
+                  )}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 rounded-lg bg-white/5 shrink-0">
+                      {item.type === "task" && <Target className="w-5 h-5 text-blue-400" />}
+                      {item.type === "approval" && <Shield className="w-5 h-5 text-amber-400" />}
+                      {item.type === "success" && <CheckCircle2 className="w-5 h-5 text-green-400" />}
+                      {item.type === "error" && <AlertTriangle className="w-5 h-5 text-red-400" />}
                     </div>
-                    <p className="text-sm text-gray-400 truncate">{item.description}</p>
-                    <p className="text-xs text-gray-500 mt-1">{timeAgo(item.timestamp)}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="font-medium text-white truncate">{item.title}</h3>
+                        {item.priority === "high" && !isApproval && (
+                          <Badge variant="destructive" className="text-xs">High Priority</Badge>
+                        )}
+                        {isApproval && (
+                          <Badge className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            Awaiting board approval
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-400 truncate">{item.description}</p>
+                      {isApproval && (
+                        <p className="text-xs text-amber-400/60 mt-1">
+                          The board will review this before the task begins.
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">{timeAgo(item.timestamp)}</p>
+                    </div>
+                    {!isApproval && <ChevronRight className="w-5 h-5 text-gray-400 shrink-0" />}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
