@@ -12,6 +12,7 @@ coverage/
 .DS_Store
 data/
 .paperclip/dev-server-status.json
+.paperclip/config.json.backup
 .pnpm-store/
 tmp-*
 cli/tmp/
