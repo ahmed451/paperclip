@@ -154,6 +154,17 @@ Per-user login for the employee portal. Username = agent role, shared password. 
 The portal login page shows the company logo, name, and motto with full brand-color theming.
 </td>
 </tr>
+<tr>
+<td align="center">
+<h3>✏️ Task Creation from Portal <em>(ElTech)</em></h3>
+Employees can create and assign tasks directly from their portal. Tasks execute immediately or enter a board approval flow when human sign-off is required.
+</td>
+<td align="center">
+<h3>📚 RAG Knowledge Base <em>(ElTech)</em></h3>
+Upload documentation, guides, or policies. Postgres full-text search indexes every document. Agents query the knowledge base at runtime via the <code>paperclipKbSearch</code> MCP tool.
+</td>
+<td align="center"></td>
+</tr>
 </table>
 
 <br/>
@@ -389,6 +400,44 @@ When multiple companies exist the login shows a company selector; switching comp
 
 <br/>
 
+## Knowledge Base
+
+> _ElTech fork addition_
+
+The Knowledge Base lets you feed your agents institutional knowledge — internal docs, guides, policies, runbooks, API references — and have them search it at runtime before acting.
+
+### How it works
+
+1. **Upload documents** — paste text or upload `.txt`, `.md`, `.csv`, or `.json` files via the **Knowledge Base** page in the board UI (Company → Knowledge Base).
+2. **Automatic indexing** — content is stored in Postgres with a GIN full-text search index. No vector DB or external service required.
+3. **Agents query it** — the `paperclipKbSearch` MCP tool is available in every agent's tool list. Call it with a natural-language query and it returns ranked excerpts with highlighted matches.
+
+### Board UI
+
+| Action | Where |
+|--------|-------|
+| Add document (paste or file upload) | **Add Document** button |
+| Preview content | Click any document row to expand |
+| Test the search index | Search bar at the top of the page |
+| Delete a document | Trash icon on the document row |
+
+### MCP Tool
+
+```
+paperclipKbSearch(query, limit?)
+```
+
+Returns the top-ranked documents with `ts_headline` excerpts around the matching terms. Agents can call this before answering questions that require company-specific knowledge.
+
+### Why Postgres FTS instead of a vector DB?
+
+- Zero new dependencies — works with the embedded Postgres instance already running.
+- `plainto_tsquery` handles multi-word queries gracefully without exact phrase matching.
+- `ts_headline` returns highlighted excerpts the agent can quote directly.
+- Good enough for company-scale knowledge bases (hundreds to low thousands of documents).
+
+<br/>
+
 ## What Paperclip is not
 
 |                              |                                                                                                                      |
@@ -493,9 +542,11 @@ See [doc/DEVELOPING.md](doc/DEVELOPING.md) for the full development guide.
 - ✅ Employee Portal with per-agent standalone workspaces _(ElTech)_
 - ✅ Role-based portal authentication with hierarchical access control _(ElTech)_
 - ✅ Company branding on the portal login page _(ElTech)_
+- ✅ Task creation and assignment from employee portal with board approval flow _(ElTech)_
+- ✅ RAG knowledge base — Postgres FTS + `paperclipKbSearch` MCP tool _(ElTech)_
 - ⚪ Cloud / Sandbox agents (e.g. Cursor / e2b agents)
 - ⚪ Artifacts & Work Products
-- ⚪ Memory / Knowledge
+- ⚪ Memory / Knowledge (vector embeddings, semantic search)
 - ⚪ Enforced Outcomes
 - ⚪ MAXIMIZER MODE
 - ⚪ Deep Planning
