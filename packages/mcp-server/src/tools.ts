@@ -224,6 +224,33 @@ async function getIssueWorkspaceRuntime(client: PaperclipApiClient, issueId: str
 export function createToolDefinitions(client: PaperclipApiClient): ToolDefinition[] {
   return [
     makeTool(
+      "paperclipKbSearch",
+      "Search the company knowledge base for documentation, guides, policies, or any indexed content. " +
+        "Returns ranked excerpts from matching documents. Use this before answering questions that may be " +
+        "covered by internal documentation.",
+      z.object({
+        query: z.string().min(1).describe("The search query"),
+        companyId: companyIdOptional.describe("Company ID (defaults to current company)"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(10)
+          .default(5)
+          .optional()
+          .describe("Maximum number of results to return"),
+      }),
+      async ({ query, companyId, limit }) => {
+        const resolvedCompanyId = client.resolveCompanyId(companyId);
+        const params = new URLSearchParams({ q: query });
+        if (limit) params.set("limit", String(limit));
+        return client.requestJson(
+          "GET",
+          `/companies/${encodeURIComponent(resolvedCompanyId)}/knowledge-base/search?${params}`,
+        );
+      },
+    ),
+    makeTool(
       "paperclipMe",
       "Get the current authenticated Paperclip actor details",
       z.object({}),

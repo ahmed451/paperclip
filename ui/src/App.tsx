@@ -47,6 +47,7 @@ import { OrgChart } from "./pages/OrgChart";
 import { NewAgent } from "./pages/NewAgent";
 import { AgentWorkspace } from "./pages/AgentWorkspace";
 import { Employees } from "./pages/Employees";
+import { KnowledgeBase } from "./pages/KnowledgeBase";
 import { EmployeePortfolioDashboard } from "./pages/EmployeeDashboard";
 import { EmployeeAgentStudio } from "./pages/EmployeeStudio";
 import { EmployeeRealtimeKanban } from "./pages/EmployeeKanban";
@@ -84,6 +85,7 @@ function boardRoutes() {
       <Route path="plugins/:pluginId" element={<PluginPage />} />
       <Route path="org" element={<OrgChart />} />
       <Route path="employees" element={<Employees />} />
+      <Route path="knowledge-base" element={<KnowledgeBase />} />
       <Route path="employee/:agentId" element={<Navigate to={`/employee/${":agentId"}/dashboard`} replace />} />
       <Route path="employee/:agentId/dashboard" element={<EmployeePortfolioDashboard />} />
       <Route path="employee/:agentId/studio" element={<EmployeeAgentStudio />} />
