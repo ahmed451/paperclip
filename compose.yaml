@@ -1,0 +1,147 @@
+# compose.yaml
+# -----------------------------------------------------------------------------
+# Portable Paperclip + Hermes agent sandbox.
+#
+#   Priority 1 (standalone build): builds from source via the combined Dockerfile
+#     `target: paperclip-hermes`. No manual `paperclip-base` step.
+#   Priority 3 (containment): resource limits + gosu-compatible privilege drop.
+#
+# Place this file + the Dockerfile + scripts/ INSIDE a checkout of the Paperclip
+# fork (so the build context has the source), then:
+#     git clone https://github.com/ahmed451/paperclip.git && cd paperclip
+#     cp /path/to/{Dockerfile,compose.yaml,.env} .
+#     cp /path/to/scripts/*.sh scripts/
+#     docker compose up -d --build
+#
+# Required .env next to this file (auto-loaded by compose):
+#     BETTER_AUTH_SECRET=<openssl rand -base64 32>
+#     OPENROUTER_API_KEY=<provider key matching the agent's model>
+#
+# `name` is pinned so existing onboarded volumes are reused. Changing it makes
+# Compose create fresh EMPTY volumes.
+# -----------------------------------------------------------------------------
+name: paperclip5a
+
+services:
+  # One-shot: make the data volume owned by the node uid (1000) BEFORE the
+  # server starts. Needed because upstream's entrypoint only chowns /paperclip
+  # when it REMAPS the uid (USER_UID != image's node uid). With the default
+  # USER_UID=1000 it skips that chown, so a freshly-seeded root-owned volume
+  # would leave `node` unable to write (EACCES on /paperclip/.cache). This fills
+  # that gap. Runs as root (alpine default), chowns, exits. Keep USER_UID below
+  # and this 1000 in sync if you ever change the runtime uid.
+  paperclip-init:
+    image: alpine
+    command: chown -R 1000:1000 /paperclip
+    volumes:
+      - paperclip_data:/paperclip
+    restart: "no"
+
+  paperclip:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: paperclip-hermes        # the Hermes-extended production stage
+    image: paperclip-hermes:local
+    environment:
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      - DATABASE_URL=postgresql://paperclip:paperclip@paperclip-db:5432/paperclip
+      # Provider key the spawned `hermes` inherits — set the ONE matching your model.
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:?set OPENROUTER_API_KEY in .env}
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # - NOUS_API_KEY=${NOUS_API_KEY}
+      # Hermes model/provider. These reach the spawned `hermes` only because they
+      # are listed HERE — a var in .env alone is NOT injected into the container,
+      # it's only available for ${...} interpolation. Hermes reads
+      # HERMES_INFERENCE_MODEL (oneshot/heartbeat path); provider matches the key.
+      - HERMES_INFERENCE_MODEL=${HERMES_INFERENCE_MODEL:?set HERMES_INFERENCE_MODEL in .env}
+      - HERMES_INFERENCE_PROVIDER=${HERMES_INFERENCE_PROVIDER:-openrouter}
+      # Headless auto-approve: the spawned hermes has no TTY, so its interactive
+      # command-approval prompt would time out and DENY (the "⏱ Timeout — denying
+      # command" you saw). These bypass it. Safe ONLY because the agent is boxed
+      # in (no host mounts, no docker socket, dropped caps, resource limits) —
+      # the container is the security boundary, not the approval prompt.
+      - HERMES_YOLO_MODE=1        # bypass dangerous-command approval
+      - HERMES_ACCEPT_HOOKS=1     # auto-approve shell hooks
+      - SERVE_UI=true
+      - PAPERCLIP_DEPLOYMENT_MODE=authenticated
+      - PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+      - PAPERCLIP_PUBLIC_URL=${PAPERCLIP_PUBLIC_URL:-http://localhost:3100}
+      # USER_UID/USER_GID default to 1000 inside the image. Override BOTH only to
+      # match a specific host uid:gid for bind-mount ownership (named volumes don't
+      # need it). The entrypoint remaps `node` and chowns /paperclip accordingly.
+      # - USER_UID=1000
+      # - USER_GID=1000
+    volumes:
+      - paperclip_data:/paperclip       # config + DB-less state + Hermes ~/.hermes
+    ports:
+      - "127.0.0.1:3100:3100"           # loopback-only
+
+    # --- privilege containment (priority 3), gosu-aware -----------------------
+    # The image starts as root and drops to `node` via gosu. We therefore CANNOT
+    # cap_drop:[ALL] outright; we drop everything and re-add only what the
+    # entrypoint needs: SETUID/SETGID (gosu drop) + CHOWN/DAC_OVERRIDE/FOWNER
+    # (its `chown -R node /paperclip` when a uid remap happens) + SETPCAP.
+    # no-new-privileges is safe here: it blocks GAINING privileges, not dropping.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+      - SETPCAP
+
+    # --- resource containment (priority 3) ------------------------------------
+    mem_limit: 2g
+    pids_limit: 512                     # stops fork bombs
+    cpus: "2.0"
+
+    depends_on:
+      paperclip-db:
+        condition: service_healthy
+      paperclip-init:
+        condition: service_completed_successfully
+    networks: [sandbox]
+    restart: unless-stopped
+
+  paperclip-db:
+    # Pin by digest for reproducible builds (priority 4):
+    #   docker buildx imagetools inspect postgres:16
+    #   image: postgres:16@sha256:<digest>
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=paperclip
+      - POSTGRES_PASSWORD=paperclip
+      - POSTGRES_DB=paperclip
+    volumes:
+      - paperclip_db:/var/lib/postgresql/data
+    # postgres entrypoint also drops root->postgres; keep default caps, just
+    # forbid privilege escalation and bound resources.
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    pids_limit: 256
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperclip -d paperclip"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [sandbox]
+    restart: unless-stopped
+
+volumes:
+  paperclip_data:
+  paperclip_db:
+
+networks:
+  sandbox:
+    driver: bridge
+    # Egress lockdown (priority 5) is OFF by default — see README. To prevent the
+    # DB from reaching the internet (it never needs to), you can move it to a
+    # second `internal: true` network; the agent still needs egress to reach the
+    # model provider, so locking IT down requires an allowlist proxy (see README).
